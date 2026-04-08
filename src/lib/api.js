@@ -24,7 +24,9 @@ export async function getServicios() {
 }
 
 export async function getServiciosAdmin() {
-  const res = await fetch(`${BASE}/servicios/admin`, { headers: await authHeaders() })
+  const res = await fetch(`${BASE}/servicios/admin`, {
+    headers: await authHeaders(),
+  })
   if (!res.ok) throw new Error('Error al obtener servicios')
   return res.json()
 }
@@ -110,6 +112,7 @@ export async function reservarTurno(data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
+
   const json = await res.json()
   if (!res.ok) throw new Error(json.error || 'Error al reservar turno')
   return json
@@ -133,70 +136,18 @@ export async function cancelarTurno(id) {
   return res.json()
 }
 
-// ── Membresías ─────────────────────────────────────────────
-export async function getMembresias() {
-  const res = await fetch(`${BASE}/membresias`, { headers: await authHeaders() })
-  if (!res.ok) throw new Error('Error al obtener membresías')
-  return res.json()
-}
+export async function subirImagenServicio(file) {
+  const token = await getToken()
+  const formData = new FormData()
+  formData.append('imagen', file)
 
-export async function crearMembresia(data) {
-  const res = await fetch(`${BASE}/membresias`, {
+  const res = await fetch(`${BASE}/uploads/servicio`, {
     method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify(data),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
   })
+
   const json = await res.json()
-  if (!res.ok) throw new Error(json.error || 'Error al crear membresía')
+  if (!res.ok) throw new Error(json.error || 'Error al subir imagen')
   return json
-}
-
-export async function bajaMembresia(id) {
-  const res = await fetch(`${BASE}/membresias/${id}/baja`, {
-    method: 'PATCH',
-    headers: await authHeaders(),
-  })
-  if (!res.ok) throw new Error('Error al dar de baja membresía')
-  return res.json()
-}
-
-export async function liberarFechaMembresia(id, fecha) {
-  const res = await fetch(`${BASE}/membresias/${id}/liberar-fecha`, {
-    method: 'PATCH',
-    headers: await authHeaders(),
-    body: JSON.stringify({ fecha }),
-  })
-  if (!res.ok) throw new Error('Error al liberar fecha')
-  return res.json()
-}
-
-// ── Solicitudes membresía ──────────────────────────────────
-export async function getSolicitudesMembresia(estado) {
-  const query = estado ? `?estado=${estado}` : ''
-  const res = await fetch(`${BASE}/solicitudes-membresia${query}`, {
-    headers: await authHeaders(),
-  })
-  if (!res.ok) throw new Error('Error al obtener solicitudes')
-  return res.json()
-}
-
-export async function solicitarMembresia(data) {
-  const res = await fetch(`${BASE}/solicitudes-membresia`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.error || 'Error al enviar solicitud')
-  return json
-}
-
-export async function actualizarSolicitud(id, estado) {
-  const res = await fetch(`${BASE}/solicitudes-membresia/${id}`, {
-    method: 'PATCH',
-    headers: await authHeaders(),
-    body: JSON.stringify({ estado }),
-  })
-  if (!res.ok) throw new Error('Error al actualizar solicitud')
-  return res.json()
 }

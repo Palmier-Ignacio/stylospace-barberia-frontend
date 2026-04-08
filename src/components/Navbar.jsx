@@ -48,9 +48,7 @@ export default function Navbar({ user }) {
             <Link to="/" className="btn btn-ghost" style={{ fontSize: '13px' }}>
               Reservar turno
             </Link>
-            <Link to="/membresia" className="btn btn-ghost" style={{ fontSize: '13px' }}>
-              Membresía
-            </Link>
+            
           </>
         )}
 
@@ -60,7 +58,6 @@ export default function Navbar({ user }) {
             <NavLink to="/admin/turnos">Turnos</NavLink>
             <NavLink to="/admin/servicios">Servicios</NavLink>
             <NavLink to="/admin/disponibilidad">Disponibilidad</NavLink>
-            <NavLink to="/admin/membresias">Membresías</NavLink>
           </>
         )}
 

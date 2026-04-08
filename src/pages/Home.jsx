@@ -127,38 +127,87 @@ export default function Home() {
         </div>
 
         {step === 0 && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: 32, marginBottom: 8 }}>Elegí tu servicio</h2>
-            <p style={{ color: 'var(--gray-600)', marginBottom: 32 }}>¿Qué te hacemos hoy?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {servicios.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setServicioSel(s); setStep(1) }}
-                  style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '20px 24px',
-                    border: `1px solid ${servicioSel?.id === s.id ? 'var(--black)' : 'var(--gray-200)'}`,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--white)',
-                    cursor: 'pointer',
-                    transition: 'border-color var(--transition)',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--black)'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = servicioSel?.id === s.id ? 'var(--black)' : 'var(--gray-200)'}
-                >
-                  <div>
-                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{s.nombre}</div>
-                    <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>{s.duracion_min} min · {s.descripcion}</div>
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 300 }}>
-                    ${s.precio.toLocaleString('es-AR')}
-                  </div>
-                </button>
-              ))}
+          <>
+            <h2 style={{ fontSize: 28, marginBottom: 8 }}>Elegí tu servicio</h2>
+            <p style={{ color: 'var(--gray-600)', marginBottom: 24 }}>¿Qué te hacemos hoy?</p>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: 16,
+              }}
+            >
+              {servicios.map(s => {
+                const selected = servicioSel?.id === s.id
+
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setServicioSel(s)
+                      setStep(1)
+                    }}
+                    style={{
+                      border: `1px solid ${selected ? 'var(--black)' : 'var(--gray-200)'}`,
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--white)',
+                      cursor: 'pointer',
+                      transition: 'border-color var(--transition)',
+                      textAlign: 'left',
+                      padding: 0,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '100%',
+                        aspectRatio: '16 / 10',
+                        background: 'var(--gray-100)',
+                        borderBottom: '1px solid var(--gray-200)',
+                      }}
+                    >
+                      {s.imagen ? (
+                        <img
+                          src={s.imagen}
+                          alt={s.nombre}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--gray-400)',
+                            fontSize: 13,
+                          }}
+                        >
+                          Sin imagen
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ padding: '18px 18px 16px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 6 }}>
+                        {s.nombre}
+                      </div>
+
+                      <div style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 10 }}>
+                        {s.duracion_min > 59 ? `${Math.trunc(s.duracion_min/60)} hs` : `` } {s.duracion_min%60 > 0  ? `${s.duracion_min%60} min` : ``} · {s.descripcion}
+                      </div>
+
+                      <div style={{ fontWeight: 600 }}>
+                        ${s.precio.toLocaleString('es-AR')}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-          </div>
+          </>
         )}
 
         {step === 1 && (
