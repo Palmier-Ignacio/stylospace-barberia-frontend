@@ -14,7 +14,7 @@ export default function Login() {
     setLoading(true)
     try {
       await signInWithEmailAndPassword(auth, email, password)
-    } catch (err) {
+    } catch {
       setError('Email o contraseña incorrectos')
     } finally {
       setLoading(false)
@@ -22,20 +22,12 @@ export default function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: 'calc(100vh - 64px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '32px 16px',
-    }}>
-      <div className="card fade-in" style={{ width: '100%', maxWidth: '380px' }}>
-        <h2 style={{ fontSize: '28px', marginBottom: '6px' }}>Acceso admin</h2>
-        <p style={{ color: 'var(--gray-600)', fontSize: '14px', marginBottom: '28px' }}>
-          Solo para el equipo de StyloSpace
-        </p>
+    <div className="auth-page">
+      <div className="card fade-in auth-card">
+        <h2 className="auth-card__title">Acceso admin</h2>
+        <p className="auth-card__subtitle">Solo para el equipo de Stylo Space</p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label className="label">Email</label>
             <input
@@ -62,8 +54,8 @@ export default function Login() {
 
           {error && <p className="error-msg">{error}</p>}
 
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: '8px' }}>
-            {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Ingresar'}
+          <button type="submit" className="btn btn-primary auth-form__submit" disabled={loading}>
+            {loading ? <span className="spinner spinner-sm" /> : 'Ingresar'}
           </button>
         </form>
       </div>

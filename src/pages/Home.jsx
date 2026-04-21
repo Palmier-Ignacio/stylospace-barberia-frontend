@@ -1,53 +1,175 @@
-import { useState, useEffect } from 'react'
-import { getServicios, getDisponibilidad, reservarTurno } from '../lib/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { getServicios, getDisponibilidad, getDisponibilidadResumen, reservarTurno } from '../lib/api'
 
 const STEPS = ['Servicio', 'Turno', 'Datos', 'Confirmar']
-
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-
-function getProximosDias(n = 14) {
-  const dias = []
-  const hoy = new Date()
-  for (let i = 0; i < n; i++) {
-    const d = new Date(hoy)
-    d.setDate(hoy.getDate() + i)
-    dias.push(d)
-  }
-  return dias
-}
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const LIMITE_DIAS_RESERVA = 30
 
 function formatFecha(dateObj) {
-  return dateObj.toISOString().split('T')[0]
+  const year = dateObj.getFullYear()
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+  const day = String(dateObj.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseDateOnly(fecha) {
+  const [year, month, day] = fecha.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function addDays(baseDate, days) {
+  const next = new Date(baseDate)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function getMonthMatrix(baseDate) {
+  const firstDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - firstDay.getDay())
+
+  const days = []
+  for (let i = 0; i < 42; i++) {
+    const day = new Date(start)
+    day.setDate(start.getDate() + i)
+    days.push(day)
+  }
+  return days
+}
+
+function formatDuracion(minutos) {
+  const horas = Math.trunc(minutos / 60)
+  const resto = minutos % 60
+  return `${horas > 0 ? `${horas} hs` : ''}${horas > 0 && resto > 0 ? ' ' : ''}${resto > 0 ? `${resto} min` : ''}`.trim()
+}
+
+function formatFechaLarga(fecha) {
+  return parseDateOnly(fecha).toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
+function isSameOrBeforeMonth(leftDate, rightDate) {
+  if (leftDate.getFullYear() !== rightDate.getFullYear()) {
+    return leftDate.getFullYear() < rightDate.getFullYear()
+  }
+  return leftDate.getMonth() <= rightDate.getMonth()
+}
+
+function isSameOrAfterMonth(leftDate, rightDate) {
+  if (leftDate.getFullYear() !== rightDate.getFullYear()) {
+    return leftDate.getFullYear() > rightDate.getFullYear()
+  }
+  return leftDate.getMonth() >= rightDate.getMonth()
 }
 
 export default function Home() {
   const [step, setStep] = useState(0)
   const [servicios, setServicios] = useState([])
   const [servicioSel, setServicioSel] = useState(null)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
+  const [calendarResumen, setCalendarResumen] = useState({})
   const [fechaSel, setFechaSel] = useState(null)
   const [slots, setSlots] = useState([])
   const [slotSel, setSlotSel] = useState(null)
+  const [loadingCalendar, setLoadingCalendar] = useState(false)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [form, setForm] = useState({ nombre_cliente: '', email: '', contacto: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const resumenCacheRef = useRef({})
+  const reservaRef = useRef(null)
+  const firstRenderRef = useRef(true)
 
-  const dias = getProximosDias(21)
+  const today = useMemo(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }, [])
+
+  const maxBookingDate = useMemo(() => addDays(today, LIMITE_DIAS_RESERVA), [today])
+  const minCalendarMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])
+  const maxCalendarMonth = useMemo(() => new Date(maxBookingDate.getFullYear(), maxBookingDate.getMonth(), 1), [maxBookingDate])
+  const monthDays = useMemo(() => getMonthMatrix(calendarMonth), [calendarMonth])
 
   useEffect(() => {
     getServicios().then(setServicios).catch(console.error)
   }, [])
 
   useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false
+      return
+    }
+
+    reservaRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }, [step])
+
+  useEffect(() => {
+  if (!success) return
+
+  reservaRef.current?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}, [success])
+
+  useEffect(() => {
+    if (step !== 1) return
+
+    const desde = formatFecha(monthDays[0])
+    const hasta = formatFecha(monthDays[monthDays.length - 1])
+    const cacheKey = `${desde}_${hasta}`
+
+    if (resumenCacheRef.current[cacheKey]) {
+      setCalendarResumen(resumenCacheRef.current[cacheKey])
+      return
+    }
+
+    setLoadingCalendar(true)
+
+    getDisponibilidadResumen(desde, hasta)
+      .then(items => {
+        const map = Object.fromEntries(items.map(item => [item.fecha, item]))
+        resumenCacheRef.current[cacheKey] = map
+        setCalendarResumen(map)
+      })
+      .catch(err => {
+        console.error(err)
+        setCalendarResumen({})
+      })
+      .finally(() => setLoadingCalendar(false))
+  }, [monthDays, step])
+
+  useEffect(() => {
     if (!fechaSel) return
+
+    const fechaDate = parseDateOnly(fechaSel)
+    if (fechaDate < today || fechaDate > maxBookingDate) {
+      setSlots([])
+      setSlotSel(null)
+      return
+    }
+
     setLoadingSlots(true)
     setSlotSel(null)
     getDisponibilidad(fechaSel)
       .then(setSlots)
-      .catch(console.error)
+      .catch(err => {
+        console.error(err)
+        setSlots([])
+      })
       .finally(() => setLoadingSlots(false))
-  }, [fechaSel])
+  }, [fechaSel, maxBookingDate, today])
 
   async function handleReservar() {
     setError('')
@@ -68,260 +190,326 @@ export default function Home() {
     }
   }
 
-  if (success) {
-    return (
-      <div style={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <div className="fade-in" style={{ textAlign: 'center', maxWidth: 440 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✂️</div>
-          <h2 style={{ fontSize: 36, marginBottom: 12 }}>¡Turno confirmado!</h2>
-          <p style={{ color: 'var(--gray-600)', marginBottom: 24 }}>
-            Te enviamos un email de confirmación a <strong>{form.email}</strong>.
-            Te esperamos el <strong>{fechaSel}</strong> a las <strong>{slotSel?.hora_inicio}</strong>.
-          </p>
-          <button className="btn btn-outline" onClick={() => { setStep(0); setSuccess(false); setServicioSel(null); setSlotSel(null); setFechaSel(null); setForm({ nombre_cliente: '', email: '', contacto: '' }) }}>
-            Reservar otro turno
-          </button>
-        </div>
-      </div>
-    )
+  function resetReserva() {
+    setStep(0)
+    setSuccess(false)
+    setServicioSel(null)
+    setSlotSel(null)
+    setFechaSel(null)
+    setSlots([])
+    setForm({ nombre_cliente: '', email: '', contacto: '' })
   }
 
+  function handleSelectDate(fecha) {
+    const selectedDate = parseDateOnly(fecha)
+    if (selectedDate < today || selectedDate > maxBookingDate) return
+    setFechaSel(fecha)
+  }
+
+
   return (
-    <div>
-      <section style={{
-        padding: '80px 32px 64px',
-        textAlign: 'center',
-        borderBottom: '1px solid var(--gray-200)',
-      }}>
-        <p style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gray-400)', marginBottom: 16 }}>
-          Buenos Aires · Barbería
-        </p>
-        <h1 style={{ fontSize: 'clamp(48px, 8vw, 80px)', marginBottom: 20 }}>
-          StyloSpace
-        </h1>
-        <p style={{ color: 'var(--gray-600)', maxWidth: 400, margin: '0 auto 32px' }}>
-          Reservá tu turno en minutos. Sin llamadas, sin esperas.
-        </p>
-        <button className="btn btn-primary" onClick={() => document.getElementById('reserva').scrollIntoView({ behavior: 'smooth' })}>
-          Reservar turno
-        </button>
-      </section>
+  <div>
+    <section className="hero-section">
+      <p className="hero-section__eyebrow">
+        <a target="_blank" href="https://maps.app.goo.gl/hh1Lj26j8GtJi1jd7">
+          Haydn 3175, William C. Morris
+        </a>
+        <br /> Buenos Aires · Barbería
+      </p>
+      <h1 className="hero-section__title">Stylo Space</h1>
+      <p className="hero-section__description">
+        Reservá tu turno en minutos. Sin llamadas, sin esperas.
+      </p>
+      <button
+        className="btn btn-primary"
+        onClick={() => document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth' })}
+      >
+        Reservar turno
+      </button>
+    </section>
 
-      <section id="reserva" style={{ maxWidth: 680, margin: '0 auto', padding: '64px 24px' }}>
-        <div style={{ display: 'flex', gap: 0, marginBottom: 48 }}>
-          {STEPS.map((s, i) => (
-            <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: i <= step ? 'var(--black)' : 'var(--gray-200)',
-                color: i <= step ? 'var(--white)' : 'var(--gray-400)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 500,
-                transition: 'background 0.3s',
-              }}>{i + 1}</div>
-              <span style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: i === step ? 'var(--black)' : 'var(--gray-400)' }}>
-                {s}
-              </span>
-            </div>
-          ))}
+    <section id="reserva" ref={reservaRef} className="booking-section">
+      {success ? (
+        <div className="booking-success">
+          <div className="fade-in booking-success__content">
+            <div className="booking-success__icon">✂️</div>
+            <h2 className="booking-success__title">¡Turno confirmado!</h2>
+            <p className="booking-success__text">
+              Te enviamos un email de confirmación a <strong>{form.email}</strong>.
+              Te esperamos el <strong>{formatFechaLarga(fechaSel)}</strong> a las <strong>{slotSel?.hora_inicio}</strong>.
+            </p>
+            <button className="btn btn-outline" onClick={resetReserva}>
+              Reservar otro turno
+            </button>
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="booking-steps">
+            {STEPS.map((item, index) => (
+              <div key={item} className="booking-steps__item">
+                <div className={`booking-steps__dot ${index <= step ? 'is-completed' : ''}`}>
+                  {index + 1}
+                </div>
+                <span className={`booking-steps__label ${index === step ? 'is-active' : ''}`}>
+                  {item}
+                </span>
+              </div>
+            ))}
+          </div>
 
-        {step === 0 && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: 32, marginBottom: 8 }}>Elegí tu servicio</h2>
-            <p style={{ color: 'var(--gray-600)', marginBottom: 32 }}>¿Qué te hacemos hoy?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {servicios.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setServicioSel(s); setStep(1) }}
-                  style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '20px 24px',
-                    border: `1px solid ${servicioSel?.id === s.id ? 'var(--black)' : 'var(--gray-200)'}`,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--white)',
-                    cursor: 'pointer',
-                    transition: 'border-color var(--transition)',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--black)'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = servicioSel?.id === s.id ? 'var(--black)' : 'var(--gray-200)'}
-                >
-                  <div>
-                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{s.nombre}</div>
-                    <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>{s.duracion_min} min · {s.descripcion}</div>
+          {step === 0 && (
+            <div className="fade-in">
+              <h2 className="section-title">Elegí tu servicio</h2>
+              <p className="section-subtitle">¿Qué te hacemos hoy?</p>
+
+              <div className="services-grid">
+                {servicios.map(servicio => {
+                  const selected = servicioSel?.id === servicio.id
+
+                  return (
+                    <button
+                      key={servicio.id}
+                      onClick={() => {
+                        setServicioSel(servicio)
+                        setFechaSel(null)
+                        setSlotSel(null)
+                        setSlots([])
+                        setCalendarMonth(minCalendarMonth)
+                        setStep(1)
+                      }}
+                      className={`service-card ${selected ? 'is-selected' : ''}`}
+                    >
+                      <div className="service-card__media">
+                        {servicio.imagen ? (
+                          <img src={servicio.imagen} alt={servicio.nombre} className="service-card__image" />
+                        ) : (
+                          <div className="service-card__placeholder">Sin imagen</div>
+                        )}
+                      </div>
+
+                      <div className="service-card__content">
+                        <div className="service-card__title">{servicio.nombre}</div>
+                        <div className="service-card__meta">
+                          {formatDuracion(servicio.duracion_min)} · {servicio.descripcion}
+                        </div>
+                        <div className="service-card__price">${servicio.precio.toLocaleString('es-AR')}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="fade-in">
+              <h2 className="section-title">Elegí día y horario</h2>
+              <p className="section-subtitle">
+                {servicioSel?.nombre} · {servicioSel?.duracion_min} min · Podés reservar hasta {LIMITE_DIAS_RESERVA} días desde hoy
+              </p>
+
+              <div className="booking-calendar-layout">
+                <div className="card booking-calendar-card">
+                  <div className="booking-calendar__header">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={isSameOrAfterMonth(minCalendarMonth, calendarMonth)}
+                      onClick={() => setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                    >
+                      ←
+                    </button>
+
+                    <div className="booking-calendar__title">
+                      {MESES[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={isSameOrBeforeMonth(maxCalendarMonth, calendarMonth)}
+                      onClick={() => setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                    >
+                      →
+                    </button>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 300 }}>
-                    ${s.precio.toLocaleString('es-AR')}
+
+                  <div className="booking-calendar__weekdays">
+                    {DIAS.map(dia => <span key={dia}>{dia}</span>)}
                   </div>
+
+                  {loadingCalendar ? (
+                    <div className="booking-loader"><div className="spinner" /></div>
+                  ) : (
+                    <div className="booking-calendar__grid">
+                      {monthDays.map(dia => {
+                        const fecha = formatFecha(dia)
+                        const resumen = calendarResumen[fecha]
+                        const isSelected = fechaSel === fecha
+                        const isCurrentMonth = dia.getMonth() === calendarMonth.getMonth()
+                        const isPast = dia < today
+                        const isBeyondLimit = dia > maxBookingDate
+                        const isDisabled = isPast || isBeyondLimit
+                        const cantidad = Number(resumen?.cantidad ?? resumen?.disponibles ?? 0)
+                        const hasAvailability = cantidad > 0
+
+                        let meta = 'Consultá horarios'
+                        if (isPast) meta = 'Pasó'
+                        else if (isBeyondLimit) meta = 'Fuera de rango'
+                        else if (hasAvailability) meta = `${cantidad} horarios`
+
+                        return (
+                          <button
+                            key={fecha}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => handleSelectDate(fecha)}
+                            className={[
+                              'calendar-day',
+                              isSelected ? 'is-selected' : '',
+                              !isCurrentMonth ? 'is-outside' : '',
+                              hasAvailability ? 'has-availability' : 'is-empty',
+                              isDisabled ? 'is-disabled' : '',
+                            ].filter(Boolean).join(' ')}
+                          >
+                            <span className="calendar-day__number">{dia.getDate()}</span>
+                            <span className="calendar-day__meta">{meta}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="card booking-times-card">
+                  <div className="booking-times-card__header">
+                    <h3>Horarios</h3>
+                    <p>{fechaSel ? formatFechaLarga(fechaSel) : 'Elegí una fecha del calendario'}</p>
+                  </div>
+
+                  <div className="booking-times-card__body">
+                    {!fechaSel ? (
+                      <p className="empty-state empty-state--soft">Seleccioná un día para ver los horarios disponibles.</p>
+                    ) : loadingSlots ? (
+                      <div className="booking-loader"><div className="spinner" /></div>
+                    ) : slots.length === 0 ? (
+                      <p className="empty-state empty-state--soft">No hay turnos disponibles para este día.</p>
+                    ) : (
+                      <div className="slot-grid">
+                        {slots.map(slot => (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSlotSel(slot)}
+                            className={`slot-chip ${slotSel?.id === slot.id ? 'is-selected' : ''}`}
+                          >
+                            <span className="slot-chip__time">{slot.hora_inicio}</span>
+                            <span className="slot-chip__label">Disponible</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="action-row">
+                <button className="btn btn-ghost" onClick={() => setStep(0)}>← Volver</button>
+                <button className="btn btn-primary" disabled={!slotSel} onClick={() => setStep(2)}>
+                  Continuar →
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: 32, marginBottom: 8 }}>Elegí el día</h2>
-            <p style={{ color: 'var(--gray-600)', marginBottom: 24 }}>{servicioSel?.nombre} · {servicioSel?.duracion_min} min</p>
-
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 32 }}>
-              {dias.map(d => {
-                const str = formatFecha(d)
-                const sel = fechaSel === str
-                return (
-                  <button
-                    key={str}
-                    onClick={() => setFechaSel(str)}
-                    style={{
-                      flexShrink: 0, width: 60, padding: '10px 0',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                      border: `1px solid ${sel ? 'var(--black)' : 'var(--gray-200)'}`,
-                      borderRadius: 'var(--radius-md)',
-                      background: sel ? 'var(--black)' : 'var(--white)',
-                      color: sel ? 'var(--white)' : 'var(--black)',
-                      cursor: 'pointer',
-                      transition: 'all var(--transition)',
-                    }}
-                  >
-                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{DIAS[d.getDay()]}</span>
-                    <span style={{ fontSize: 18, fontFamily: 'var(--font-display)', fontWeight: 300 }}>{d.getDate()}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {fechaSel && (
-              <>
-                <p className="label" style={{ marginBottom: 12 }}>Horarios disponibles</p>
-                {loadingSlots ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="spinner" /></div>
-                ) : slots.length === 0 ? (
-                  <p style={{ color: 'var(--gray-600)', textAlign: 'center', padding: 32 }}>No hay turnos disponibles para este día.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
-                    {slots.map(slot => (
-                      <button
-                        key={slot.id}
-                        onClick={() => setSlotSel(slot)}
-                        style={{
-                          padding: '10px 16px',
-                          border: `1px solid ${slotSel?.id === slot.id ? 'var(--black)' : 'var(--gray-200)'}`,
-                          borderRadius: 'var(--radius)',
-                          background: slotSel?.id === slot.id ? 'var(--black)' : 'var(--white)',
-                          color: slotSel?.id === slot.id ? 'var(--white)' : 'var(--black)',
-                          fontSize: 14,
-                          cursor: 'pointer',
-                          transition: 'all var(--transition)',
-                        }}
-                      >
-                        {slot.hora_inicio}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setStep(0)}>← Volver</button>
-              <button className="btn btn-primary" disabled={!slotSel} onClick={() => setStep(2)}>
-                Continuar →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: 32, marginBottom: 8 }}>Tus datos</h2>
-            <p style={{ color: 'var(--gray-600)', marginBottom: 32 }}>Para confirmar tu turno necesitamos tus datos.</p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div className="form-group">
-                <label className="label">Nombre completo</label>
-                <input
-                  className="input"
-                  placeholder="Juan Pérez"
-                  value={form.nombre_cliente}
-                  onChange={e => setForm(f => ({ ...f, nombre_cliente: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="label">Email</label>
-                <input
-                  className="input"
-                  type="email"
-                  placeholder="juan@gmail.com"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="label">WhatsApp o Instagram</label>
-                <input
-                  className="input"
-                  placeholder="1134567890 o @juanperez"
-                  value={form.contacto}
-                  onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))}
-                />
               </div>
             </div>
+          )}
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
-              <button className="btn btn-ghost" onClick={() => setStep(1)}>← Volver</button>
-              <button
-                className="btn btn-primary"
-                disabled={!form.nombre_cliente || !form.email || !form.contacto}
-                onClick={() => setStep(3)}
-              >
-                Continuar →
-              </button>
+          {step === 2 && (
+            <div className="fade-in">
+              <h2 className="section-title">Tus datos</h2>
+              <p className="section-subtitle">Para confirmar tu turno necesitamos tus datos.</p>
+
+              <div className="form-stack">
+                <div className="form-group">
+                  <label className="label">Nombre completo</label>
+                  <input
+                    className="input"
+                    placeholder="Juan Pérez"
+                    value={form.nombre_cliente}
+                    onChange={e => setForm(f => ({ ...f, nombre_cliente: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label">Email</label>
+                  <input
+                    className="input"
+                    type="email"
+                    placeholder="juan@gmail.com"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label">WhatsApp o Instagram</label>
+                  <input
+                    className="input"
+                    placeholder="1134567890 o @juanperez"
+                    value={form.contacto}
+                    onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="action-row action-row--spaced">
+                <button className="btn btn-ghost" onClick={() => setStep(1)}>← Volver</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={!form.nombre_cliente || !form.email || !form.contacto}
+                  onClick={() => setStep(3)}
+                >
+                  Continuar →
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {step === 3 && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: 32, marginBottom: 8 }}>Confirmá tu turno</h2>
-            <p style={{ color: 'var(--gray-600)', marginBottom: 32 }}>Revisá los detalles antes de confirmar.</p>
+          {step === 3 && (
+            <div className="fade-in">
+              <h2 className="section-title">Confirmá tu turno</h2>
+              <p className="section-subtitle">Revisá los detalles antes de confirmar.</p>
 
-            <div className="card" style={{ marginBottom: 24 }}>
-              <Row label="Servicio" value={servicioSel?.nombre} />
-              <hr className="divider" />
-              <Row label="Fecha" value={fechaSel} />
-              <Row label="Horario" value={slotSel?.hora_inicio} />
-              <hr className="divider" />
-              <Row label="Nombre" value={form.nombre_cliente} />
-              <Row label="Email" value={form.email} />
-              <Row label="Contacto" value={form.contacto} />
-              <hr className="divider" />
-              <Row label="Total" value={`$${servicioSel?.precio?.toLocaleString('es-AR')}`} big />
+              <div className="card booking-summary-card">
+                <Row label="Servicio" value={servicioSel?.nombre} />
+                <hr className="divider" />
+                <Row label="Fecha" value={fechaSel ? formatFechaLarga(fechaSel) : ''} />
+                <Row label="Horario" value={slotSel?.hora_inicio} />
+                <hr className="divider" />
+                <Row label="Nombre" value={form.nombre_cliente} />
+                <Row label="Email" value={form.email} />
+                <Row label="Contacto" value={form.contacto} />
+                <hr className="divider" />
+                <Row label="Total" value={`$${servicioSel?.precio?.toLocaleString('es-AR')}`} big />
+              </div>
+
+              {error && <p className="error-msg booking-summary__error">{error}</p>}
+
+              <div className="action-row">
+                <button className="btn btn-ghost" onClick={() => setStep(2)}>← Volver</button>
+                <button className="btn btn-primary" onClick={handleReservar} disabled={loading}>
+                  {loading ? <span className="spinner spinner-sm" /> : 'Confirmar turno'}
+                </button>
+              </div>
             </div>
-
-            {error && <p className="error-msg" style={{ marginBottom: 16 }}>{error}</p>}
-
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button className="btn btn-ghost" onClick={() => setStep(2)}>← Volver</button>
-              <button className="btn btn-primary" onClick={handleReservar} disabled={loading}>
-                {loading ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Confirmar turno'}
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  )
-}
+          )}
+        </>
+      )}
+    </section>
+  </div>
+)}
 
 function Row({ label, value, big }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-      <span style={{ fontSize: 13, color: 'var(--gray-600)' }}>{label}</span>
-      <span style={{ fontWeight: big ? 500 : 400, fontSize: big ? 18 : 14, fontFamily: big ? 'var(--font-display)' : 'inherit' }}>
-        {value}
-      </span>
+    <div className="summary-row">
+      <span className="summary-row__label">{label}</span>
+      <span className={`summary-row__value ${big ? 'is-big' : ''}`}>{value}</span>
     </div>
   )
 }

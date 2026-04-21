@@ -26,7 +26,7 @@ export default function Disponibilidad() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState('slots') // 'slots' | 'rango' | 'manual'
+  const [tab, setTab] = useState('slots')
   const [rango, setRango] = useState(EMPTY_RANGO)
   const [slot, setSlot] = useState(EMPTY_SLOT)
   const [saving, setSaving] = useState(false)
@@ -39,9 +39,11 @@ export default function Disponibilidad() {
       .finally(() => setLoading(false))
   }, [fecha])
 
-  async function handleToggle(s) {
-    await toggleSlot(s.id, !s.disponible)
-    setSlots(ss => ss.map(x => x.id === s.id ? { ...x, disponible: !x.disponible } : x))
+  async function handleToggle(slotActual) {
+    await toggleSlot(slotActual.id, !slotActual.disponible)
+    setSlots(actuales => actuales.map(item => (
+      item.id === slotActual.id ? { ...item, disponible: !item.disponible } : item
+    )))
   }
 
   async function handleCrearRango(e) {
@@ -50,10 +52,10 @@ export default function Disponibilidad() {
     setMsg('')
     try {
       const res = await crearRango({ ...rango, duracion_min: Number(rango.duracion_min) })
-      setMsg(`✓ Rango creado: ${res.slots_creados} slots generados`)
+      setMsg(`✓ Rango creado: slots generados`)
       setRango(EMPTY_RANGO)
     } catch (err) {
-      setMsg('Error: ' + err.message)
+      setMsg(`Error: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -72,126 +74,97 @@ export default function Disponibilidad() {
         setSlots(updated)
       }
     } catch (err) {
-      setMsg('Error: ' + err.message)
+      setMsg(`Error: ${err.message}`)
     } finally {
       setSaving(false)
     }
   }
 
-  function toggleDia(val) {
-    setRango(r => ({
-      ...r,
-      dias_semana: r.dias_semana.includes(val)
-        ? r.dias_semana.filter(d => d !== val)
-        : [...r.dias_semana, val],
+  function toggleDia(valor) {
+    setRango(actual => ({
+      ...actual,
+      dias_semana: actual.dias_semana.includes(valor)
+        ? actual.dias_semana.filter(dia => dia !== valor)
+        : [...actual.dias_semana, valor],
     }))
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
-      <h1 style={{ fontSize: 36, marginBottom: 40 }}>Disponibilidad</h1>
+    <div className="admin-page availability-page">
+      <header className="page-header">
+        <h1 className="page-title">Disponibilidad</h1>
+      </header>
 
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--gray-200)', marginBottom: 32 }}>
+      <div className="tabs-row">
         {[
           { key: 'slots', label: 'Ver slots' },
           { key: 'rango', label: 'Crear rango' },
           { key: 'manual', label: 'Slot manual' },
-        ].map(t => (
+        ].map(item => (
           <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setMsg('') }}
-            style={{
-              padding: '12px 20px',
-              background: 'none',
-              border: 'none',
-              borderBottom: tab === t.key ? '2px solid var(--black)' : '2px solid transparent',
-              color: tab === t.key ? 'var(--black)' : 'var(--gray-600)',
-              fontWeight: tab === t.key ? 500 : 400,
-              fontSize: 14,
-              cursor: 'pointer',
-              marginBottom: '-1px',
-              transition: 'all var(--transition)',
+            key={item.key}
+            onClick={() => {
+              setTab(item.key)
+              setMsg('')
             }}
+            className={`tab-button ${tab === item.key ? 'is-active' : ''}`}
           >
-            {t.label}
+            {item.label}
           </button>
         ))}
       </div>
 
       {tab === 'slots' && (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-            <div className="form-group">
+          <div className="filters-grid filters-grid--single">
+            <div className="form-group form-group--inline-date">
               <label className="label">Fecha</label>
-              <input type="date" className="input" style={{ width: 'auto' }} value={fecha} onChange={e => setFecha(e.target.value)} />
+              <input type="date" className="input input--auto" value={fecha} onChange={e => setFecha(e.target.value)} />
             </div>
           </div>
 
           {loading ? (
             <div className="page-loader"><div className="spinner" /></div>
           ) : slots.length === 0 ? (
-            <p style={{ color: 'var(--gray-400)', textAlign: 'center', padding: 32 }}>No hay slots para esta fecha.</p>
+            <p className="empty-state">No hay slots para esta fecha.</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
-              {slots.map(s => (
+            <div className="slots-admin-grid">
+              {slots.map(item => (
                 <button
-                  key={s.id}
-                  onClick={() => handleToggle(s)}
-                  style={{
-                    padding: '14px 10px',
-                    border: '1px solid',
-                    borderColor: s.disponible ? 'var(--gray-200)' : 'var(--black)',
-                    borderRadius: 'var(--radius-md)',
-                    background: s.disponible ? 'var(--white)' : 'var(--black)',
-                    color: s.disponible ? 'var(--black)' : 'var(--white)',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition)',
-                    textAlign: 'center',
-                  }}
+                  key={item.id}
+                  onClick={() => handleToggle(item)}
+                  className={`availability-slot ${item.disponible ? '' : 'is-disabled'}`}
                 >
-                  <div style={{ fontSize: 16, fontWeight: 500 }}>{s.hora_inicio}</div>
-                  <div style={{ fontSize: 11, marginTop: 4, opacity: 0.7 }}>
-                    {s.disponible ? 'Disponible' : 'Ocupado'}
-                  </div>
+                  <div className="availability-slot__time">{item.hora_inicio}</div>
+                  <div className="availability-slot__status">{item.disponible ? 'Disponible' : 'Ocupado'}</div>
                 </button>
               ))}
             </div>
           )}
-          <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 16 }}>
-            Hacé click en un slot para habilitarlo o deshabilitarlo.
-          </p>
+
+          <p className="page-note">Hacé click en un slot para habilitarlo o deshabilitarlo.</p>
         </div>
       )}
 
       {tab === 'rango' && (
-        <form onSubmit={handleCrearRango} style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form onSubmit={handleCrearRango} className="form-stack form-stack--medium">
           <div className="form-group">
             <label className="label">Días de la semana</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {DIAS_SEMANA.map(d => (
+            <div className="chip-row">
+              {DIAS_SEMANA.map(dia => (
                 <button
-                  key={d.value}
+                  key={dia.value}
                   type="button"
-                  onClick={() => toggleDia(d.value)}
-                  style={{
-                    padding: '8px 14px',
-                    border: '1px solid',
-                    borderColor: rango.dias_semana.includes(d.value) ? 'var(--black)' : 'var(--gray-200)',
-                    borderRadius: 'var(--radius)',
-                    background: rango.dias_semana.includes(d.value) ? 'var(--black)' : 'var(--white)',
-                    color: rango.dias_semana.includes(d.value) ? 'var(--white)' : 'var(--black)',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all var(--transition)',
-                  }}
+                  onClick={() => toggleDia(dia.value)}
+                  className={`slot-chip ${rango.dias_semana.includes(dia.value) ? 'is-selected' : ''}`}
                 >
-                  {d.label}
+                  {dia.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="two-column-grid">
             <div className="form-group">
               <label className="label">Hora desde</label>
               <input type="time" className="input" value={rango.hora_desde} onChange={e => setRango(r => ({ ...r, hora_desde: e.target.value }))} required />
@@ -202,7 +175,7 @@ export default function Disponibilidad() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="two-column-grid">
             <div className="form-group">
               <label className="label">Fecha desde</label>
               <input type="date" className="input" value={rango.fecha_desde} onChange={e => setRango(r => ({ ...r, fecha_desde: e.target.value }))} required />
@@ -218,21 +191,22 @@ export default function Disponibilidad() {
             <input type="number" className="input" value={rango.duracion_min} onChange={e => setRango(r => ({ ...r, duracion_min: e.target.value }))} min={15} max={180} step={15} required />
           </div>
 
-          {msg && <p style={{ fontSize: 13, color: msg.startsWith('✓') ? '#2e7d32' : '#c0392b' }}>{msg}</p>}
+          {msg && <p className={`feedback-text ${msg.startsWith('✓') ? 'is-success' : 'is-error'}`}>{msg}</p>}
 
           <button type="submit" className="btn btn-primary" disabled={saving || rango.dias_semana.length === 0}>
-            {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Generar slots'}
+            {saving ? <span className="spinner spinner-sm" /> : 'Generar slots'}
           </button>
         </form>
       )}
 
       {tab === 'manual' && (
-        <form onSubmit={handleCrearSlot} style={{ maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form onSubmit={handleCrearSlot} className="form-stack form-stack--small">
           <div className="form-group">
             <label className="label">Fecha</label>
             <input type="date" className="input" value={slot.fecha} onChange={e => setSlot(s => ({ ...s, fecha: e.target.value }))} required />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+          <div className="two-column-grid">
             <div className="form-group">
               <label className="label">Hora inicio</label>
               <input type="time" className="input" value={slot.hora_inicio} onChange={e => setSlot(s => ({ ...s, hora_inicio: e.target.value }))} required />
@@ -243,10 +217,10 @@ export default function Disponibilidad() {
             </div>
           </div>
 
-          {msg && <p style={{ fontSize: 13, color: msg.startsWith('✓') ? '#2e7d32' : '#c0392b' }}>{msg}</p>}
+          {msg && <p className={`feedback-text ${msg.startsWith('✓') ? 'is-success' : 'is-error'}`}>{msg}</p>}
 
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Crear slot'}
+            {saving ? <span className="spinner spinner-sm" /> : 'Crear slot'}
           </button>
         </form>
       )}
