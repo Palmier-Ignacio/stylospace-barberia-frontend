@@ -25,7 +25,7 @@ export default function Login() {
     <div className="auth-page">
       <div className="card fade-in auth-card">
         <h2 className="auth-card__title">Acceso admin</h2>
-        <p className="auth-card__subtitle">Solo para el equipo de StyloSpace</p>
+        <p className="auth-card__subtitle">Solo para el equipo de Stylo Space</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

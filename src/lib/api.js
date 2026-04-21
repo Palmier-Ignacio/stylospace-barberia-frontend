@@ -142,6 +142,31 @@ export async function cancelarTurno(id) {
   return res.json()
 }
 
+
+export async function getEstadoCancelacionPublica(id, token) {
+  const params = new URLSearchParams({ token })
+  const res = await fetch(`${BASE}/turnos/${id}/cancelacion-publica?${params.toString()}`)
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Error al validar la cancelación')
+  return json
+}
+
+export async function cancelarTurnoPublico(id, token) {
+  const res = await fetch(`${BASE}/turnos/${id}/cancelacion-publica`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    const error = new Error(json.error || 'Error al cancelar turno')
+    error.code = json.code
+    error.contacto = json.contacto
+    throw error
+  }
+  return json
+}
+
 export async function subirImagenServicio(file) {
   const token = await getToken()
   const formData = new FormData()

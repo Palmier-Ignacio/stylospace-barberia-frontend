@@ -15,6 +15,7 @@ import Dashboard from './pages/admin/Dashboard'
 import Turnos from './pages/admin/Turnos'
 import Servicios from './pages/admin/Servicios'
 import Disponibilidad from './pages/admin/Disponibilidad'
+import CancelarTurno from './pages/CancelarTurno'
 
 export default function App() {
   const [user, setUser] = useState(undefined)
@@ -39,6 +40,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={user ? <Navigate to="/admin" /> : <Login />} />
+        <Route path="/cancelar-turno" element={<CancelarTurno />} />
 
         <Route path="/admin" element={<ProtectedRoute user={user}><Dashboard /></ProtectedRoute>} />
         <Route path="/admin/turnos" element={<ProtectedRoute user={user}><Turnos /></ProtectedRoute>} />

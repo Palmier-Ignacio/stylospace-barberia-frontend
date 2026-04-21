@@ -1200,6 +1200,47 @@ overflow-y: auto;
   align-self: flex-start;
 }
 
+/* Fix overflow en página de servicios (admin) */
+
+.services-layout > * {
+  min-width: 0;
+}
+
+.service-admin-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.service-admin-card__info {
+  min-width: 0;
+}
+
+/* Evita que textos largos rompan el layout */
+.service-admin-card__title,
+.service-admin-card__meta,
+.service-admin-card__price {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Botones más flexibles */
+.service-admin-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-admin-card__actions button {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+/* Mobile: evitar desbordes */
+@media (max-width: 640px) {
+  .services-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
 
 /* ========= RESPONSIVE ========= */
 

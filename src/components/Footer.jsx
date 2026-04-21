@@ -17,14 +17,23 @@ export default function Footer() {
         <div className="footer-col">
           <p className="footer-col-title">Ubicación</p>
           <p className="footer-col-text"><a target="_blank" href="https://maps.app.goo.gl/hh1Lj26j8GtJi1jd7" >Haydn 3175, William C. Morris</a><br />Buenos Aires, Argentina</p>
-          <p className="footer-col-text footer-hours">Mar - Vie: 16:00 – 21:00</p>
+        </div>
+          
+        <div className="footer-col">
+          <p className="footer-col-title">Horarios</p>
+          <p className="footer-col-text footer-hours">Mar - Vie: 15:30 – 20:30</p>
           <p className="footer-col-text footer-hours">Sáb: 12:00 – 21:00</p>
         </div>
 
         <div className="footer-col">
           <p className="footer-col-title">Reservas</p>
           <p className="footer-col-text">¿Querés sacar turno?</p>
-          <Link to="/" className="btn btn-primary footer-cta">Reservar turno</Link>
+          <button
+        className="btn btn-primary"
+        onClick={() => document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth' })}
+      >
+        Reservar turno
+      </button>
         </div>
 
       </div>

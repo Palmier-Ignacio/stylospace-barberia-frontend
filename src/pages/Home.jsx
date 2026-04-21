@@ -216,7 +216,7 @@ export default function Home() {
         </a>
         <br /> Buenos Aires · Barbería
       </p>
-      <h1 className="hero-section__title">StyloSpace</h1>
+      <h1 className="hero-section__title">Stylo Space</h1>
       <p className="hero-section__description">
         Reservá tu turno en minutos. Sin llamadas, sin esperas.
       </p>

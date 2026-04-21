@@ -75,7 +75,7 @@ export default function Dashboard() {
     <div className="admin-page dashboard-page">
       <header className="page-header">
         <h1 className="page-title">Panel de administración</h1>
-        <p className="page-subtitle">Bienvenido a StyloSpace</p>
+        <p className="page-subtitle">Bienvenido a Stylo Space</p>
       </header>
 
       <div className="stats-grid">
