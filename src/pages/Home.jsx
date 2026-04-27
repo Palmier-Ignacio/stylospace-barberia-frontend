@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getServicios, getDisponibilidad, getDisponibilidadResumen, reservarTurno } from '../lib/api'
+import {
+  addDaysArgentina,
+  parseDateOnlyArgentina,
+  startOfTodayArgentina,
+  toDateOnlyArgentina,
+} from '../lib/argentinaDate'
 
 const STEPS = ['Servicio', 'Turno', 'Datos', 'Confirmar']
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -7,21 +13,15 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 const LIMITE_DIAS_RESERVA = 30
 
 function formatFecha(dateObj) {
-  const year = dateObj.getFullYear()
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-  const day = String(dateObj.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return toDateOnlyArgentina(dateObj)
 }
 
 function parseDateOnly(fecha) {
-  const [year, month, day] = fecha.split('-').map(Number)
-  return new Date(year, month - 1, day)
+  return parseDateOnlyArgentina(fecha)
 }
 
 function addDays(baseDate, days) {
-  const next = new Date(baseDate)
-  next.setDate(next.getDate() + days)
-  return next
+  return addDaysArgentina(baseDate, days)
 }
 
 function getMonthMatrix(baseDate) {
@@ -71,8 +71,8 @@ export default function Home() {
   const [servicios, setServicios] = useState([])
   const [servicioSel, setServicioSel] = useState(null)
   const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
+    const todayArgentina = startOfTodayArgentina()
+    return new Date(todayArgentina.getFullYear(), todayArgentina.getMonth(), 1)
   })
   const [calendarResumen, setCalendarResumen] = useState({})
   const [fechaSel, setFechaSel] = useState(null)
@@ -88,10 +88,7 @@ export default function Home() {
   const reservaRef = useRef(null)
   const firstRenderRef = useRef(true)
 
-  const today = useMemo(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  }, [])
+  const today = useMemo(() => startOfTodayArgentina(), [])
 
   const maxBookingDate = useMemo(() => addDays(today, LIMITE_DIAS_RESERVA), [today])
   const minCalendarMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])

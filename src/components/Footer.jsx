@@ -25,7 +25,7 @@ export default function Footer() {
             <br />Buenos Aires, Argentina
           </p>
         </div>
-
+          
         <div className="footer-col">
           <p className="footer-col-title">Horarios</p>
           <p className="footer-col-text footer-hours">Mar - Vie: 15:30 – 20:30</p>
@@ -36,17 +36,18 @@ export default function Footer() {
           <p className="footer-col-title">Reservas</p>
           <p className="footer-col-text">¿Querés sacar turno?</p>
           <button
-            className="btn btn-primary"
-            onClick={() => document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth' })}
-          >
-            Reservar turno
-          </button>
+        className="btn btn-primary"
+        onClick={() => document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth' })}
+      >
+        Reservar turno
+      </button>
         </div>
 
       </div>
 
       <div className="footer-bottom">
         <p className="footer-copy">© {new Date().getFullYear()} Stylo Space. Todos los derechos reservados.</p>
+        <p className="footer-copy">Desarrollado por <a href="https://palmier-ignacio.github.io/" className='btn-developer' target='_blank' >Palmier Ignacio →</a></p>
         <Link to="/login" className="footer-admin-link">Acceso administrador</Link>
       </div>
     </footer>

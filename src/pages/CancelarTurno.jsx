@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { cancelarTurnoPublico, getEstadoCancelacionPublica } from '../lib/api'
+import { formatDateArgentina } from '../lib/argentinaDate'
 
 function formatFechaLarga(fecha) {
-  const [year, month, day] = fecha.split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString('es-AR', {
+  return formatDateArgentina(fecha, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -93,6 +93,8 @@ export default function CancelarTurno() {
                     {turno.estado === 'cancelled' ? 'Cancelado' : 'Confirmado'}
                   </span>
                 </p>
+                {turno.cancelado_por && <p><strong>Cancelado por:</strong> {turno.cancelado_por}</p>}
+                
               </div>
             )}
 
@@ -114,11 +116,7 @@ export default function CancelarTurno() {
                 <p className={cancelacion?.code === 'already_cancelled' ? 'success-msg' : 'error-msg'} style={{ display: 'block' }}>
                   {cancelacion?.message || error}
                 </p>
-                {cancelacion?.code === 'deadline_passed' && (
-                  <p style={{ marginTop: 12 }}>
-                    Ya pasó el tiempo necesario para cancelar online. Contactate con el equipo de Stylo Space.
-                  </p>
-                )}
+                
               </div>
             )}
 

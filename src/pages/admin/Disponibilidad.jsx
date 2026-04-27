@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getDisponibilidadAdmin, crearRango, crearSlot, toggleSlot } from '../../lib/api'
+import { startOfTodayArgentina, toDateOnlyArgentina } from '../../lib/argentinaDate'
 
 const DIAS_SEMANA = [
   { label: 'Domingo', value: 0 },
@@ -23,7 +24,7 @@ const EMPTY_RANGO = {
 const EMPTY_SLOT = { fecha: '', hora_inicio: '', hora_fin: '' }
 
 export default function Disponibilidad() {
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(() => toDateOnlyArgentina(startOfTodayArgentina()))
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState('slots')

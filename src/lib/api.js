@@ -133,12 +133,33 @@ export async function getTurnosAdmin(params = {}) {
   return res.json()
 }
 
+export async function editarTurno(id, data) {
+  const res = await fetch(`${BASE}/turnos/${id}`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Error al editar turno')
+  return json
+}
+
 export async function cancelarTurno(id) {
   const res = await fetch(`${BASE}/turnos/${id}/cancelar`, {
     method: 'PATCH',
     headers: await authHeaders(),
   })
   if (!res.ok) throw new Error('Error al cancelar turno')
+  return res.json()
+}
+
+export async function getIngresosAdmin(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  const url = query ? `${BASE}/turnos/admin/ingresos?${query}` : `${BASE}/turnos/admin/ingresos`
+  const res = await fetch(url, {
+    headers: await authHeaders(),
+  })
+  if (!res.ok) throw new Error('Error al obtener ingresos')
   return res.json()
 }
 
